@@ -1,48 +1,228 @@
-name: Сборка Песчаного Данжа
+name: 🏗️ Сборка Песчаного Данжа
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
   release:
     types: [ published ]
+  workflow_dispatch:  # Ручной запуск
+
+env:
+  JAVA_VERSION: '21'
+  MAVEN_OPTS: '-Xmx2g -Xms1g'
 
 jobs:
-  build:
-    name: Собрать плагин
+  code-quality:
+    name: 🔍 Проверка качества кода
     runs-on: ubuntu-latest
     
     steps:
-    - name: Клонировать репозиторий
+    - name: 📥 Клонировать репозиторий
       uses: actions/checkout@v4
       
-    - name: Установить Java 21
+    - name: ☕ Установить Java ${{ env.JAVA_VERSION }}
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: ${{ env.JAVA_VERSION }}
         distribution: 'temurin'
+        cache: 'maven'
         
-    - name: Кэшировать Maven зависимости
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
-          
-    - name: Собрать проект
-      run: mvn clean package -DskipTests
+    - name: 🔍 Проверить компиляцию
+      run: mvn compile -q
       
-    - name: Загрузить артефакт
+    - name: 📏 Проверить стиль кода
+      run: |
+        mvn checkstyle:checkstyle
+        echo "## Проверка стиля завершена"
+        
+    - name: 📊 Анализ зависимостей
+      run: mvn dependency:analyze -q
+      
+    - name: 🗂️ Проверить структуру проекта
+      run: |
+        echo "Проверка структуры проекта..."
+        [ -f "src/main/resources/plugin.yml" ] || exit 1
+        [ -f "pom.xml" ] || exit 1
+        echo "✅ Структура проекта корректна"
+
+  tests:
+    name: 🧪 Тестирование
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    steps:
+    - name: 📥 Клонировать репозиторий
+      uses: actions/checkout@v4
+      
+    - name: ☕ Установить Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+        
+    - name: 🧪 Запустить unit-тесты
+      run: mvn test
+      env:
+        MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
+        
+    - name: 📊 Отчёт о покрытии кода
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./target/site/jacoco/jacoco.xml
+        flags: unittests
+
+  build:
+    name: 🏗️ Сборка плагина
+    runs-on: ubuntu-latest
+    needs: [code-quality, tests]
+    
+    strategy:
+      matrix:
+        java: [ '21' ]
+        os: [ubuntu-latest]
+        
+    steps:
+    - name: 📥 Клонировать репозиторий
+      uses: actions/checkout@v4
+      
+    - name: ☕ Установить Java ${{ matrix.java }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'temurin'
+        cache: 'maven'
+        
+    - name: 🏗️ Собрать JAR
+      run: |
+        mvn clean package -DskipTests
+        echo "Сборка завершена!"
+        
+    - name: 📏 Проверить размер артефакта
+      run: |
+        JAR_FILE=$(ls target/*.jar)
+        JAR_SIZE=$(stat -c%s "$JAR_FILE")
+        JAR_SIZE_MB=$((JAR_SIZE / 1024 / 1024))
+        echo "📦 Размер JAR: ${JAR_SIZE_MB} MB"
+        
+        if [ $JAR_SIZE -gt 104857600 ]; then  # 100MB
+          echo "❌ Слишком большой JAR файл!"
+          exit 1
+        fi
+        echo "✅ Размер JAR в пределах нормы"
+        
+    - name: 🔍 Проверить содержимое JAR
+      run: |
+        jar -tf target/*.jar | head -20
+        echo "... и ещё файлов"
+        
+    - name: 🏷️ Получить версию
+      id: version
+      run: |
+        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📋 Версия плагина: $VERSION"
+        
+    - name: 📦 Загрузить артефакт
       uses: actions/upload-artifact@v4
       with:
-        name: SandstormDungeon
+        name: SandstormDungeon-${{ steps.version.outputs.version }}
         path: target/*.jar
         retention-days: 30
+        compression-level: 9
+
+  security:
+    name: 🔒 Проверка безопасности
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: 📥 Клонировать репозиторий
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Сканирование уязвимостей
+      uses: actions/dependency-review-action@v3
+      
+    - name: 🛡️ Проверка секретов
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
         
-    - name: Создать релиз (только для тегов)
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: 🚨 Анти-сканер секретов
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.ref }}
+        
+  release:
+    name: 🚀 Создание релиза
+    runs-on: ubuntu-latest
+    needs: [build, security]
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: 📥 Клонировать репозиторий
+      uses: actions/checkout@v4
+      
+    - name: ☕ Установить Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+        
+    - name: 🏗️ Собрать финальную версию
+      run: mvn clean package -DskipTests
+      
+    - name: 🏷️ Создать релиз
       uses: softprops/action-gh-release@v1
       with:
         files: target/*.jar
+        body: |
+          ## 🏜️ Песчаный Данж - ${{ github.ref_name }}
+          
+          ### Что нового:
+          - Автоматическая сборка через GitHub Actions
+          - Проверка качества кода
+          - Тестирование и безопасность
+          
+          ### Установка:
+          1. Скачайте JAR файл
+          2. Поместите в папку `plugins`
+          3. Перезагрузите сервер
+          
+          ### Команды:
+          - `/песчанаябуря старт` - запустить бурю
+          - `/данж` - телепорт в подземелье
+        draft: false
+        prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+
+  notify:
+    name: 📢 Уведомления
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: always()
+    
+    steps:
+    - name: 📊 Статус сборки
+      run: |
+        echo "Сборка завершена со статусом: ${{ needs.build.result }}"
+        echo "Артефакты доступны для скачивания"
+        
+    - name: 💬 Уведомление в Discord
+      if: failure()
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "❌ Сборка провалилась"
+        description: "Проверьте ошибки в workflow"
+        
+    - name: 🎉 Уведомление об успехе
+      if: success()
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "✅ Сборка успешна!"
+        description: "Плагин готов к использованию"
