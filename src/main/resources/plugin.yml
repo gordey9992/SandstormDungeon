@@ -1,0 +1,28 @@
+name: SandstormDungeon
+version: 1.0.0
+main: com.gordey25690.sandstormdungeon.ОсновнойПлагин
+api-version: 1.21
+authors: [gordey25690, Deepseek]
+description: Подземелье с песчаной бурей и древним храмом
+website: https://github.com/gordey9992/SandstormDungeon
+commands:
+  песчанаябуря:
+    description: Управление песчаной бурей
+    usage: /песчанаябуря <старт|стоп|перезагрузить>
+    permission: песчаныйданж.админ
+  данж:
+    description: Телепорт в подземелье
+    usage: /данж
+    permission: песчаныйданж.игрок
+permissions:
+  песчаныйданж.*:
+    description: Все разрешения
+    children:
+      песчаныйданж.админ: true
+      песчаныйданж.игрок: true
+  песчаныйданж.админ:
+    description: Права администратора
+    default: op
+  песчаныйданж.игрок:
+    description: Права игрока
+    default: true
