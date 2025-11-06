@@ -54,9 +54,9 @@ public class ЗадачаПесчанойБури extends BukkitRunnable {
             
             Location локацияЧастицы = локацияИгрока.clone().add(смещениеX, смещениеY, смещениеZ);
             
-            // Горизонтальные частицы песка
+            // Горизонтальные частицы песка - используем FALLING_DUST вместо BLOCK_DUST
             локацияИгрока.getWorld().spawnParticle(
-                Particle.BLOCK_DUST,
+                Particle.FALLING_DUST,
                 локацияЧастицы,
                 1,
                 0.1, 0.1, 0.1,
@@ -103,7 +103,7 @@ public class ЗадачаПесчанойБури extends BukkitRunnable {
             
             // Эффект частиц при движении
             исходныйБлок.getWorld().spawnParticle(
-                Particle.BLOCK_DUST,
+                Particle.FALLING_DUST, // Используем FALLING_DUST вместо BLOCK_DUST
                 исходныйБлок.getLocation().add(0.5, 0.5, 0.5),
                 3,
                 0.2, 0.2, 0.2,
