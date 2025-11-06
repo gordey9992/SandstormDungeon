@@ -41,8 +41,7 @@ public class МенеджерПесчанойБури {
     public boolean этоПустыня(Location локация) {
         Biome биом = локация.getBlock().getBiome();
         return биом == Biome.DESERT || 
-               биом == Biome.DESERT_HILLS || 
-               биом.toString().contains("DESERT");
+               биом.toString().contains("DESERT"); // Убрали DESERT_HILLS - устарел
     }
     
     /**
