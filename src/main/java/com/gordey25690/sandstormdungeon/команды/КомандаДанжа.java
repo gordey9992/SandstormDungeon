@@ -1,6 +1,7 @@
 package com.gordey25690.sandstormdungeon.команды;
 
 import com.gordey25690.sandstormdungeon.ОсновнойПлагин;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
