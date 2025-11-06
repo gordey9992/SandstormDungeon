@@ -4,6 +4,8 @@ import com.gordey25690.sandstormdungeon.менеджеры.МенеджерКо�
 import com.gordey25690.sandstormdungeon.менеджеры.МенеджерПесчанойБури;
 import com.gordey25690.sandstormdungeon.менеджеры.МенеджерПодземелья;
 import com.gordey25690.sandstormdungeon.слушатели.СлушательПесчанойБури;
+import com.gordey25690.sandstormdungeon.команды.КомандаПесчанойБури;
+import com.gordey25690.sandstormdungeon.команды.КомандаДанжа;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
