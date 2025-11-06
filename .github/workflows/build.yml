@@ -1,0 +1,48 @@
+name: Сборка Песчаного Данжа
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    name: Собрать плагин
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Клонировать репозиторий
+      uses: actions/checkout@v4
+      
+    - name: Установить Java 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Кэшировать Maven зависимости
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+          
+    - name: Собрать проект
+      run: mvn clean package -DskipTests
+      
+    - name: Загрузить артефакт
+      uses: actions/upload-artifact@v4
+      with:
+        name: SandstormDungeon
+        path: target/*.jar
+        retention-days: 30
+        
+    - name: Создать релиз (только для тегов)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: target/*.jar
